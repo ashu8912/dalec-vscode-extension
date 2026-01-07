@@ -1,9 +1,9 @@
 # Dalec VS Code Extension
 
-A lightweight VS Code extension for authoring and debugging Dalec specs.
+VS Code extension for authoring and debugging Dalec specs.
 
-[!WARNING]
-> ⚠️ **Early Development**: This extension is not production ready yet and may change significantly.
+> [!WARNING]
+> **Early Development**: This extension is not production ready yet and may change significantly.
 
 ## Features
 
