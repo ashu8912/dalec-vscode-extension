@@ -23,6 +23,11 @@
   "preview": true,
   "main": "./dist/extension.js",
   "contributes": {
+    "breakpoints": [
+      {
+        "language": "yaml"
+      }
+    ],
     "commands": [
       {
         "command": "dalec-vscode-tools.buildCurrentSpec",
@@ -35,6 +40,16 @@
       {
         "command": "dalec-vscode-tools.rerunLastAction",
         "title": "Dalec: Rerun Last Action"
+      },
+      {
+        "command": "dalec-vscode-tools.createNewSpec",
+        "title": "Dalec: New Spec"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "yaml",
+        "path": "./snippets/dalec.code-snippets"
       }
     ],
     "menus": {

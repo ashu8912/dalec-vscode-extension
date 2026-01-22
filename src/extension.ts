@@ -64,8 +64,6 @@ export async function activate(context: vscode.ExtensionContext) {
       runDebugCommand(uri, tracker, lastAction),
     );
 
-	vscode.commands.registerCommand('dalec-vscode-tools.createNewSpec', () => createNewSpec());
-
 	vscode.commands.registerCommand('dalec-vscode-tools.rerunLastAction', () => rerunLastAction(tracker, lastAction)),
     vscode.commands.registerCommand('dalec-vscode-tools.rerunLastActionBuild', () =>
       rerunLastAction(tracker, lastAction, 'build'),
@@ -73,6 +71,8 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('dalec-vscode-tools.rerunLastActionDebug', () =>
       rerunLastAction(tracker, lastAction, 'debug'),
     ),
+
+	vscode.commands.registerCommand('dalec-vscode-tools.createNewSpec', () => createNewSpec());
 
 	context.subscriptions.push(disposable);
 }

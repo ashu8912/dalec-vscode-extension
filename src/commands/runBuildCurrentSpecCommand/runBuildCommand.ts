@@ -337,7 +337,6 @@ export class DalecDebugAdapterDescriptorFactory implements vscode.DebugAdapterDe
       context: config.context,
       buildArgs: mapFromRecord(config.buildArgs),
       buildContexts: mapFromRecord(config.buildContexts),
-      noCache: config.noCache ?? false,
       imageName: config.imageName,
       imageTag: config.imageTag,
     });
@@ -386,5 +385,4 @@ interface DalecDebugConfiguration extends vscode.DebugConfiguration {
   dalecContextResolved?: boolean;
   imageName?: string;
   imageTag?: string;
-  noCache?: boolean;
 }
