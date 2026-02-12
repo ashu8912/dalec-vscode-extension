@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as YAML from 'yaml';
+import { fetchDalecJsonSchema } from './utils/dockerHelpers';
 
 // Legacy regex for built-in Dalec frontend patterns
 const LEGACY_SYNTAX_REGEX = /^#\s*syntax\s*=\s*(?<image>ghcr\.io\/(?:project-dalec|azure)\/dalec\/frontend:[^\s#]+|[^\s#]*dalec[^\s#]*)/i;
@@ -404,6 +405,10 @@ export class DalecSchemaProvider implements vscode.Disposable {
   private readonly fallbackSchemaUri: vscode.Uri;
   private yamlApi: YamlExtensionApi | undefined;
   private readonly disposables: vscode.Disposable[] = [];
+  /** Cache of fetched schemas keyed by dalec frontend image. */
+  private readonly schemaCache = new Map<string, string>();
+  /** Track in-flight fetch promises to avoid duplicate requests. */
+  private readonly pendingFetches = new Map<string, Promise<string | undefined>>();
 
   constructor(
     context: vscode.ExtensionContext,
@@ -463,7 +468,9 @@ export class DalecSchemaProvider implements vscode.Disposable {
       ? encodeURIComponent(workspaceFolder.uri.toString())
       : 'global';
 
-    return `${SCHEMA_SCHEME}://${authority}/dalec-jsonschema`;
+    // Embed the document resource URI in the fragment so we can extract the
+    // syntax directive image when resolving the schema content.
+    return `${SCHEMA_SCHEME}://${authority}/dalec-jsonschema#${resource}`;
   }
 
   private async onRequestSchemaContent(uri: string): Promise<string | undefined> {
@@ -471,11 +478,73 @@ export class DalecSchemaProvider implements vscode.Disposable {
     const authority = parsed.authority && parsed.authority !== 'global' ? parsed.authority : '';
     const workspaceUri = authority ? vscode.Uri.parse(decodeURIComponent(authority)) : undefined;
 
-    const schemaContent = await this.readSchema(workspaceUri);
+    // Extract the document resource URI from the schema URI fragment (if present)
+    const resource = parsed.fragment || undefined;
+
+    const schemaContent = await this.readSchema(workspaceUri, resource);
     return schemaContent;
   }
 
-  private async readSchema(workspaceUri?: vscode.Uri): Promise<string | undefined> {
+  /**
+   * Attempts to fetch the JSON schema from dalec (>= 0.19) for the given frontend image.
+   * Returns the cached result on subsequent calls for the same image.
+   */
+  private async fetchSchemaFromDalec(syntaxImage: string): Promise<string | undefined> {
+    // Return cached schema if available
+    const cached = this.schemaCache.get(syntaxImage);
+    if (cached) {
+      return cached;
+    }
+
+    // Deduplicate in-flight requests for the same image
+    let pending = this.pendingFetches.get(syntaxImage);
+    if (!pending) {
+      pending = fetchDalecJsonSchema(syntaxImage);
+      this.pendingFetches.set(syntaxImage, pending);
+    }
+
+    try {
+      const schema = await pending;
+      if (schema) {
+        this.schemaCache.set(syntaxImage, schema);
+        return schema;
+      }
+    } finally {
+      this.pendingFetches.delete(syntaxImage);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extracts the dalec frontend image from a tracked document's syntax directive.
+   */
+  private getSyntaxImageForResource(resource: string): string | undefined {
+    const docUri = vscode.Uri.parse(resource);
+    for (const doc of vscode.workspace.textDocuments) {
+      if (doc.uri.toString() === docUri.toString() && doc.lineCount > 0) {
+        const firstLine = doc.lineAt(0).text.trim();
+        const match = /^#\s*syntax\s*=\s*(?<image>[^\s#]+)/i.exec(firstLine);
+        return match?.groups?.image;
+      }
+    }
+    return undefined;
+  }
+
+  private async readSchema(workspaceUri?: vscode.Uri, resource?: string): Promise<string | undefined> {
+    // 1. Try to fetch schema directly from dalec (>= 0.19)
+    if (resource) {
+      const syntaxImage = this.getSyntaxImageForResource(resource);
+      if (syntaxImage) {
+        const dalecSchema = await this.fetchSchemaFromDalec(syntaxImage);
+        if (dalecSchema) {
+          return dalecSchema;
+        }
+        console.log(`[Dalec] Could not fetch schema from dalec, falling back to bundled schema`);
+      }
+    }
+
+    // 2. Fallback: try workspace-local schema file
     if (workspaceUri) {
       const docPath = vscode.Uri.joinPath(workspaceUri, ...FALLBACK_SCHEMA_RELATIVE_PATH);
       try {
@@ -487,6 +556,7 @@ export class DalecSchemaProvider implements vscode.Disposable {
       }
     }
 
+    // 3. Fallback: extension-bundled schema
     try {
       const content = await vscode.workspace.fs.readFile(this.fallbackSchemaUri);
       return new TextDecoder().decode(content);

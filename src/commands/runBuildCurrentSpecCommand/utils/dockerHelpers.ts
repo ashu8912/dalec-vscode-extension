@@ -177,6 +177,82 @@ export async function resolveDalecImageMetadata(
 }
 
 
+/**
+ * Fetches the JSON schema from a dalec frontend image via the `frontend.dalec.schema` subrequest.
+ * Available since dalec 0.19.
+ *
+ * Buildx automatically prefixes `--call` values with `frontend.`, so we pass `dalec.schema`
+ * to invoke the `frontend.dalec.schema` subrequest.
+ *
+ * The function creates a minimal Dockerfile with the given syntax directive,
+ * pipes it to stdin, and returns the raw JSON schema string.
+ *
+ * @param syntaxImage - The dalec frontend image to use (e.g., 'ghcr.io/project-dalec/dalec/frontend:latest')
+ * @returns Promise resolving to the JSON schema string, or undefined if the fetch fails
+ */
+export async function fetchDalecJsonSchema(syntaxImage: string): Promise<string | undefined> {
+  try {
+    const buildxSetting = vscode.workspace.getConfiguration('dalec-spec').get('buildxCommand', 'docker buildx').trim();
+    const parts = buildxSetting.split(/\s+/);
+    const binary = parts.shift() || 'docker';
+
+    // Buildx auto-prefixes --call values with 'frontend.', so 'dalec.schema'
+    // becomes the 'frontend.dalec.schema' subrequest.
+    const args = [...parts, 'build', '--call', 'dalec.schema', '-'];
+
+    const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      const childProcess = spawn(binary, args, {
+        env: {
+          ...process.env,
+          BUILDX_EXPERIMENTAL: '1',
+        },
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      childProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      childProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      childProcess.on('error', (error: Error) => {
+        reject(error);
+      });
+
+      childProcess.on('close', (code: number | null) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Process exited with code ${code}: ${stderr}`));
+        }
+      });
+
+      // Write a minimal Dockerfile with the syntax directive to stdin and close it
+      childProcess.stdin.write(`# syntax=${syntaxImage}\n`);
+      childProcess.stdin.end();
+    });
+
+    // Validate that we got valid JSON back
+    const trimmed = result.stdout.trim();
+    if (!trimmed) {
+      getDalecOutputChannel().appendLine('[Dalec] dalec.schema subrequest returned empty output');
+      return undefined;
+    }
+
+    JSON.parse(trimmed); // Validate JSON; throws on invalid
+    getDalecOutputChannel().appendLine(`[Dalec] Successfully fetched JSON schema from dalec frontend: ${syntaxImage}`);
+    return trimmed;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    getDalecOutputChannel().appendLine(`[Dalec] Failed to fetch JSON schema via dalec.schema subrequest: ${errorMessage}`);
+    return undefined;
+  }
+}
+
 export function createDockerBuildxCommand(inputs: DockerCommandInputs): DockerCommand {
   const buildxSetting = vscode.workspace.getConfiguration('dalec-spec').get('buildxCommand', 'docker buildx').trim();
   const parts = buildxSetting.split(/\s+/);
