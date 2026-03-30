@@ -6,7 +6,7 @@
   "publisher": "ms-kubernetes-tools",
   "icon": "resources/dalec.png",
   "engines": {
-    "vscode": "^1.108.1"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other"
