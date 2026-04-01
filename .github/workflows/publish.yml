@@ -162,18 +162,7 @@ jobs:
           name: v${{ needs.JobBuild.outputs.currentversion }}
           body: ${{ needs.JobBuild.outputs.changelog_reader_changes }}
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      # ------------------------
-      # Upload Signed Artifact to Release
-      # ------------------------
-      - name: Upload VSIX to Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VSIX_FILE: ${{ steps.vsix.outputs.VSIX_FILE }}
-          RELEASE_TAG: v${{ needs.JobBuild.outputs.currentversion }}
-        run: |
-          gh release upload \
-            "${RELEASE_TAG}" \
-            "${VSIX_FILE}" \
-            "${VSIX_FILE}.bundle"
+          files: |
+            ${{ steps.vsix.outputs.VSIX_FILE }}
+            ${{ steps.vsix.outputs.VSIX_FILE }}.bundle
 
