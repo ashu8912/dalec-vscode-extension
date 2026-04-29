@@ -183,18 +183,18 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "25.x",
-    "@types/vscode": "^1.110.0",
+    "@types/vscode": "^1.115.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
-    "eslint": "^10.1.0",
-    "ts-loader": "^9.5.4",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.2",
-    "webpack": "^5.105.4",
+    "eslint": "^10.2.1",
+    "ts-loader": "^9.5.7",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.1",
+    "webpack": "^5.106.2",
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
-    "yaml": "^2.8.2"
+    "yaml": "^2.8.3"
   },
   "repository": {
     "type": "git",
